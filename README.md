@@ -43,11 +43,14 @@ Built with enterprise scalability in mind, it features a strict **Role-Based Acc
 
 ## 📸 Screenshots
 
-*(Replace these placeholders with actual screenshots of your application)*
+### Dashboard
+![Dashboard](./docs/screenshots/dashboard.png)
 
-- `![Dashboard](./docs/screenshots/dashboard.png)`
-- `![Dispatch View](./docs/screenshots/dispatch.png)`
-- `![Analytics](./docs/screenshots/analytics.png)`
+### Dispatch View
+![Dispatch View](./docs/screenshots/dispatch.png)
+
+### Analytics
+![Analytics](./docs/screenshots/analytics.png)
 
 ## ⚙️ Environment Variables
 
