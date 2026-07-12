@@ -293,6 +293,14 @@ export async function addFuelLog(f: Omit<FuelLog, 'id'>): Promise<FuelLog> {
   return mapFuel(data);
 }
 
+export async function updateFuelLog(f: FuelLog): Promise<FuelLog> {
+  const { data, error } = await supabase.from('fuel_logs').update({
+    vehicle_id: f.vehicleId, liters: f.liters, cost: f.cost, date: f.date
+  }).eq('id', f.id).select().single();
+  if (error) throw new Error(error.message);
+  return mapFuel(data);
+}
+
 export async function getExpenses(): Promise<Expense[]> {
   const { data } = await supabase.from('expenses').select('*').order('date', { ascending: false });
   return (data || []).map(mapExpense);
