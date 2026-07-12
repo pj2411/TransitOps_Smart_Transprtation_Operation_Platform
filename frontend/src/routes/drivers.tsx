@@ -12,11 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getDrivers, addDriver, updateDriver, deleteDriver } from "@/lib/store";
 import type { Driver, DriverStatus } from "@/types";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { AlertTriangle, Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight, User, ArrowUp, ArrowDown } from "lucide-react";
 
 export const Route = createFileRoute("/drivers")({ component: DriversPage });
 
 const statuses: DriverStatus[] = ["Available", "On Trip", "Off Duty", "Suspended"];
+
+type SortConfig = { key: keyof Driver; direction: "asc" | "desc" } | null;
 
 function DriversPage() {
   const [q, setQ] = useState("");
@@ -26,6 +28,7 @@ function DriversPage() {
   const [editTarget, setEditTarget] = useState<Driver | null>(null);
   const [profileTarget, setProfileTarget] = useState<Driver | null>(null);
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const pageSize = 10;
 
   useEffect(() => {
@@ -34,17 +37,37 @@ function DriversPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, active]);
+  }, [q, active, sortConfig]);
 
-  const filtered = useMemo(
-    () =>
-      rows.filter(
-        (d) =>
-          (active === "All" || d.status === active) &&
-          (q === "" || d.name.toLowerCase().includes(q.toLowerCase()) || d.licenseNumber.toLowerCase().includes(q.toLowerCase())),
-      ),
-    [rows, q, active],
-  );
+  const handleSort = (key: keyof Driver) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof Driver }) => {
+    if (sortConfig?.key !== columnKey) return null;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
+  const filtered = useMemo(() => {
+    let result = rows.filter(
+      (d) =>
+        (active === "All" || d.status === active) &&
+        (q === "" || d.name.toLowerCase().includes(q.toLowerCase()) || d.licenseNumber.toLowerCase().includes(q.toLowerCase())),
+    );
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === "asc" ? -1 : 1;
+        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [rows, q, active, sortConfig]);
 
   const daysUntil = (iso: string) => Math.round((new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
@@ -105,13 +128,27 @@ function DriversPage() {
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead>Driver</TableHead>
-              <TableHead>License No</TableHead>
-              <TableHead>Expiry</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead className="text-right">Trip Compl.</TableHead>
-              <TableHead>Safety</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("name")}>
+                Driver <SortIcon columnKey="name" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("licenseNumber")}>
+                License No <SortIcon columnKey="licenseNumber" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("licenseExpiryDate")}>
+                Expiry <SortIcon columnKey="licenseExpiryDate" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("contactNumber")}>
+                Contact <SortIcon columnKey="contactNumber" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleSort("completedTrips")}>
+                Trip Compl. <SortIcon columnKey="completedTrips" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("safetyScore")}>
+                Safety <SortIcon columnKey="safetyScore" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("status")}>
+                Status <SortIcon columnKey="status" />
+              </TableHead>
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -152,7 +189,7 @@ function DriversPage() {
             })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                   No drivers match your filters.
                 </TableCell>
               </TableRow>

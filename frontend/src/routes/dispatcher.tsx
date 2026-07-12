@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getTrips, getDispatchVehicles, getDispatchDrivers, getVehicles, getDrivers, addTrip, dispatchTrip, completeTrip, cancelTrip, updateTrip } from "@/lib/store";
+import { getTrips, getDispatchVehicles, getDispatchDrivers, getVehicles, getDrivers, addTrip, dispatchTrip, completeTrip, cancelTrip, updateTrip, deleteTrip } from "@/lib/store";
 import type { Trip, TripStatus, Vehicle, Driver } from "@/types";
-import { AlertOctagon, CheckCircle2, PlayCircle, Send, XCircle, Edit2, FileText, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { AlertOctagon, CheckCircle2, PlayCircle, Send, XCircle, Edit2, FileText, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/dispatcher")({ component: Dispatcher });
 
 const flow: TripStatus[] = ["Draft", "Dispatched", "Completed"];
+
+type SortConfig = { key: keyof Trip | 'id' | 'route'; direction: "asc" | "desc" } | null;
 
 function Dispatcher() {
   const [board, setBoard] = useState<Trip[]>([]);
@@ -33,6 +35,7 @@ function Dispatcher() {
 
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const pageSize = 10;
   
   const [editTarget, setEditTarget] = useState<Trip | null>(null);
@@ -41,7 +44,7 @@ function Dispatcher() {
 
   useEffect(() => {
     setPage(1);
-  }, [q]);
+  }, [q, sortConfig]);
 
   const loadData = async () => {
     try {
@@ -89,6 +92,17 @@ function Dispatcher() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this trip? This action cannot be undone.")) {
+      try {
+        await deleteTrip(id);
+        await loadData();
+      } catch (e: any) {
+        alert(e.message);
+      }
+    }
+  };
+
   const createTrip = async () => {
     if (overloaded) return;
     try {
@@ -112,13 +126,44 @@ function Dispatcher() {
     }
   };
 
+  const handleSort = (key: keyof Trip | 'id' | 'route') => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof Trip | 'id' | 'route' }) => {
+    if (sortConfig?.key !== columnKey) return null;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
   const stageIndex = (s: TripStatus) => flow.indexOf(s);
 
-  const filtered = board.filter(t => 
-    q === "" || t.id.toLowerCase().includes(q.toLowerCase()) || 
-    t.source.toLowerCase().includes(q.toLowerCase()) || 
-    t.destination.toLowerCase().includes(q.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    let result = board.filter(t => 
+      q === "" || t.id.toLowerCase().includes(q.toLowerCase()) || 
+      t.source.toLowerCase().includes(q.toLowerCase()) || 
+      t.destination.toLowerCase().includes(q.toLowerCase())
+    );
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA: any = a[sortConfig.key as keyof Trip] || '';
+        let valB: any = b[sortConfig.key as keyof Trip] || '';
+        
+        if (sortConfig.key === 'route') {
+          valA = `${a.source} ${a.destination}`;
+          valB = `${b.source} ${b.destination}`;
+        }
+
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [board, q, sortConfig]);
   
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -232,9 +277,15 @@ function Dispatcher() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Trip</TableHead>
-                <TableHead>Route</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("id")}>
+                  Trip <SortIcon columnKey="id" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("route")}>
+                  Route <SortIcon columnKey="route" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("status")}>
+                  Status <SortIcon columnKey="status" />
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -273,6 +324,9 @@ function Dispatcher() {
                             <XCircle className="h-3.5 w-3.5" /> Cancel
                           </Button>
                         )}
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(t.id)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-danger/20 hover:text-danger">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

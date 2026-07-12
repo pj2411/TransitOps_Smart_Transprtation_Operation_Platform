@@ -248,6 +248,11 @@ export async function cancelTrip(tripId: string): Promise<void> {
   }
 }
 
+export async function deleteTrip(tripId: string): Promise<void> {
+  const { error } = await supabase.from('trips').delete().eq('id', tripId);
+  if (error) throw new Error(error.message);
+}
+
 /* ══════════════════════════════════════════════════════════════
    MAINTENANCE
    ══════════════════════════════════════════════════════════════ */
@@ -278,6 +283,19 @@ export async function closeMaintenance(logId: string): Promise<void> {
   }
 }
 
+export async function updateMaintenanceLog(m: MaintenanceLog): Promise<MaintenanceLog> {
+  const { data, error } = await supabase.from('maintenance_logs').update({
+    vehicle_id: m.vehicleId, service_type: m.serviceType, cost: m.cost, date_opened: m.dateOpened, date_closed: m.dateClosed, status: m.status
+  }).eq('id', m.id).select().single();
+  if (error) throw new Error(error.message);
+  return mapMaintenance(data);
+}
+
+export async function deleteMaintenanceLog(id: string): Promise<void> {
+  const { error } = await supabase.from('maintenance_logs').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 /* ══════════════════════════════════════════════════════════════
    FUEL LOGS & EXPENSES
    ══════════════════════════════════════════════════════════════ */
@@ -301,6 +319,11 @@ export async function updateFuelLog(f: FuelLog): Promise<FuelLog> {
   return mapFuel(data);
 }
 
+export async function deleteFuelLog(id: string): Promise<void> {
+  const { error } = await supabase.from('fuel_logs').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export async function getExpenses(): Promise<Expense[]> {
   const { data } = await supabase.from('expenses').select('*').order('date', { ascending: false });
   return (data || []).map(mapExpense);
@@ -319,6 +342,11 @@ export async function updateExpense(e: Expense): Promise<Expense> {
   }).eq('id', e.id).select().single();
   if (error) throw new Error(error.message);
   return mapExpense(data);
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  const { error } = await supabase.from('expenses').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 /* ══════════════════════════════════════════════════════════════

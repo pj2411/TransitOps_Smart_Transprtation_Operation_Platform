@@ -6,9 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { monthlyFinancials } from "@/lib/mock-data";
-import { getVehicles, getDrivers, getTrips } from "@/lib/store";
-import type { Vehicle, Driver, Trip } from "@/types";
-import { Truck, CheckCircle2, Wrench, Gauge, TrendingUp } from "lucide-react";
+import { getVehicles, getDrivers, getTrips, getFuelLogs, getMaintenanceLogs } from "@/lib/store";
+import type { Vehicle, Driver, Trip, FuelLog, MaintenanceLog } from "@/types";
+import { Truck, CheckCircle2, Wrench, Gauge, TrendingUp, IndianRupee, Percent } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
@@ -36,6 +36,8 @@ function Dashboard() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
+  const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([]);
 
   // Filter States
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("All");
@@ -43,10 +45,12 @@ function Dashboard() {
   const [regionFilter, setRegionFilter] = useState("All");
 
   useEffect(() => {
-    Promise.all([getVehicles(), getDrivers(), getTrips()]).then(([vs, ds, ts]) => {
+    Promise.all([getVehicles(), getDrivers(), getTrips(), getFuelLogs(), getMaintenanceLogs()]).then(([vs, ds, ts, fs, ms]) => {
       setVehicles(vs);
       setDrivers(ds);
       setTrips(ts);
+      setFuelLogs(fs);
+      setMaintenanceLogs(ms);
     }).catch(console.error);
   }, []);
 
@@ -65,14 +69,33 @@ function Dashboard() {
   const regions = Array.from(new Set(trips.flatMap(t => [t.source, t.destination]))).sort();
 
   const kpi = {
-    activeVehicles: filteredVehicles.filter(v => v.status === 'On Trip').length,
-    availableVehicles: filteredVehicles.filter(v => v.status === 'Available').length,
-    inMaintenance: filteredVehicles.filter(v => v.status === 'In Shop').length,
     activeTrips: filteredTrips.filter(t => t.status === 'Dispatched').length,
     pausedTrips: filteredTrips.filter(t => t.status === 'Draft').length,
-    driversOnDuty: drivers.filter(d => d.status === 'On Trip').length, // global driver stat
-    fleetUtilization: filteredVehicles.length ? Math.round((filteredVehicles.filter(v => v.status === 'On Trip' || v.status === 'Available').length / filteredVehicles.length) * 100) : 0,
+    driversOnDuty: drivers.filter(d => d.status === 'On Trip').length,
+    inMaintenance: filteredVehicles.filter(v => v.status === 'In Shop').length,
   };
+
+  // 1. Fuel Efficiency = Distance / Fuel
+  // We use sum of plannedDistance of all trips / sum of fuel liters
+  const totalDistance = trips.reduce((sum, t) => sum + (t.plannedDistance || 0), 0);
+  const totalFuelLiters = fuelLogs.reduce((sum, f) => sum + f.liters, 0);
+  const fuelEfficiency = totalFuelLiters > 0 ? (totalDistance / totalFuelLiters).toFixed(2) : "0";
+
+  // 2. Fleet Utilization = Active Vehicles / Total Vehicles
+  const activeVehicles = filteredVehicles.filter(v => v.status === 'On Trip').length;
+  const fleetUtilization = filteredVehicles.length > 0 ? Math.round((activeVehicles / filteredVehicles.length) * 100) : 0;
+
+  // 3. Operational Cost = Fuel + Maintenance
+  const totalFuelCost = fuelLogs.reduce((sum, f) => sum + f.cost, 0);
+  const totalMaintenanceCost = maintenanceLogs.reduce((sum, m) => sum + m.cost, 0);
+  const operationalCost = totalFuelCost + totalMaintenanceCost;
+
+  // 4. Vehicle ROI = (Revenue - (Maintenance + Fuel)) / Acquisition Cost
+  const totalRevenue = trips.reduce((sum, t) => sum + (t.revenue || 0), 0);
+  const totalAcquisitionCost = vehicles.reduce((sum, v) => sum + (v.acquisitionCost || 0), 0);
+  const vehicleRoi = totalAcquisitionCost > 0 
+    ? (((totalRevenue - operationalCost) / totalAcquisitionCost) * 100).toFixed(2) 
+    : "0";
 
   const filterActions = (
     <div className="flex flex-wrap items-center gap-3">
@@ -124,10 +147,10 @@ function Dashboard() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KPI icon={Truck} label="Active Vehicles" value={String(kpi.activeVehicles)} tint="bg-info" />
-        <KPI icon={CheckCircle2} label="Available Vehicles" value={String(kpi.availableVehicles)} tint="bg-success" />
-        <KPI icon={Wrench} label="In Maintenance" value={String(kpi.inMaintenance)} tint="bg-warning" />
-        <KPI icon={Gauge} label="Fleet Utilization" value={`${kpi.fleetUtilization}%`} tint="bg-primary" />
+        <KPI icon={Gauge} label="Fuel Efficiency" value={`${fuelEfficiency} km/L`} tint="bg-info" />
+        <KPI icon={Percent} label="Fleet Utilization" value={`${fleetUtilization}%`} tint="bg-primary" />
+        <KPI icon={IndianRupee} label="Operational Cost" value={`₹${operationalCost.toLocaleString()}`} tint="bg-danger" />
+        <KPI icon={TrendingUp} label="Vehicle ROI" value={`${vehicleRoi}%`} tint="bg-success" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">

@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, X, Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Plus, Edit2, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,6 +23,8 @@ const matrix = [
 const cols = ["Fleet", "Trips", "Drivers", "Fuel/Exp", "Analytics"];
 const userRoles: UserRole[] = ["Fleet Manager", "Driver", "Safety Officer", "Financial Analyst"];
 
+type SortConfig = { key: keyof User; direction: "asc" | "desc" } | null;
+
 function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({ depotName: "", currency: "", distanceUnit: "" });
   const [users, setUsers] = useState<User[]>([]);
@@ -31,7 +33,11 @@ function SettingsPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const pageSize = 10;
+
+  // Reminders Config State (simulated)
+  const [reminders, setReminders] = useState({ docs: 30, maintenanceKm: 5000, enabled: true });
 
   const loadData = async () => {
     try {
@@ -46,9 +52,34 @@ function SettingsPage() {
   const handleSaveSettings = async () => {
     try {
       await updateSettings(settings);
-      alert("Settings saved successfully.");
+      alert("Settings and reminder configurations saved successfully.");
     } catch (e: any) { alert(e.message); }
   };
+
+  const handleSort = (key: keyof User) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof User }) => {
+    if (sortConfig?.key !== columnKey) return null;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
+  const filteredUsers = useMemo(() => {
+    let result = [...users];
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const valA = a[sortConfig.key] || '';
+        const valB = b[sortConfig.key] || '';
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [users, sortConfig]);
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
@@ -58,16 +89,16 @@ function SettingsPage() {
     } catch (e: any) { alert(e.message); }
   };
 
-  const totalPages = Math.ceil(users.length / pageSize);
-  const paginatedUsers = users.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const paginatedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <>
-      <PageHeader title="Settings & User Management" subtitle="Company profile, access controls, and user accounts." />
+      <PageHeader title="Settings & User Management" subtitle="Company profile, access controls, user accounts, and alerts." />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 mb-6">
         <Card className="border-border bg-panel p-5">
-          <div className="mb-4 text-sm font-semibold">General</div>
+          <div className="mb-4 text-sm font-semibold">General Settings</div>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-1.5">
               <Label>Depot Name</Label>
@@ -82,7 +113,30 @@ function SettingsPage() {
               <Input value={settings.distanceUnit} onChange={(e) => setSettings({ ...settings, distanceUnit: e.target.value })} className="border-border bg-canvas" />
             </div>
           </div>
-          <Button className="mt-5 bg-warning text-warning-foreground hover:bg-warning/90" onClick={handleSaveSettings}>Save changes</Button>
+
+          <div className="mb-4 mt-6 text-sm font-semibold border-t border-border pt-6">Email Reminders Config</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 space-y-1.5">
+              <Label>Enable Automated Email Reminders</Label>
+              <Select value={reminders.enabled ? "yes" : "no"} onValueChange={(v) => setReminders({ ...reminders, enabled: v === "yes" })}>
+                <SelectTrigger className="border-border bg-canvas"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Enabled (Requires Edge Function)</SelectItem>
+                  <SelectItem value="no">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Docs Expiry Alert (Days)</Label>
+              <Input type="number" value={reminders.docs} onChange={(e) => setReminders({ ...reminders, docs: parseInt(e.target.value) || 0 })} className="border-border bg-canvas" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Maintenance Alert (KM)</Label>
+              <Input type="number" value={reminders.maintenanceKm} onChange={(e) => setReminders({ ...reminders, maintenanceKm: parseInt(e.target.value) || 0 })} className="border-border bg-canvas" />
+            </div>
+          </div>
+          
+          <Button className="mt-5 bg-warning text-warning-foreground hover:bg-warning/90" onClick={handleSaveSettings}>Save Configurations</Button>
         </Card>
 
         <Card className="border-border bg-panel p-5">
@@ -122,9 +176,15 @@ function SettingsPage() {
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("email")}>
+                Email <SortIcon columnKey="email" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("role")}>
+                Role <SortIcon columnKey="role" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("lockedUntil")}>
+                Status <SortIcon columnKey="lockedUntil" />
+              </TableHead>
               <TableHead className="w-[100px] text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -160,7 +220,7 @@ function SettingsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <div className="text-xs text-muted-foreground">
-              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, users.length)} of {users.length} entries
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredUsers.length)} of {filteredUsers.length} entries
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>

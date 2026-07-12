@@ -1,19 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppLayout";
-import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getVehicles, getFuelLogs, getExpenses, addFuelLog, updateFuelLog, addExpense, updateExpense } from "@/lib/store";
+import { getVehicles, getFuelLogs, getExpenses, addFuelLog, updateFuelLog, deleteFuelLog, addExpense, updateExpense, deleteExpense } from "@/lib/store";
 import type { Vehicle, FuelLog, Expense } from "@/types";
-import { Fuel, Plus, Receipt, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Fuel, Plus, Receipt, Edit2, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/fuel")({ component: FuelPage });
+
+type FuelSortConfig = { key: keyof FuelLog | 'vehicleReg'; direction: "asc" | "desc" } | null;
+type ExpSortConfig = { key: keyof Expense | 'vehicleReg' | 'total'; direction: "asc" | "desc" } | null;
 
 function FuelPage() {
   const [logs, setLogs] = useState<FuelLog[]>([]);
@@ -21,8 +23,13 @@ function FuelPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState({ vehicleId: "", liters: 40, cost: 0 });
   const [editTarget, setEditTarget] = useState<FuelLog | null>(null);
+  
   const [page, setPage] = useState(1);
+  const [fuelSort, setFuelSort] = useState<FuelSortConfig>(null);
+  
   const [expPage, setExpPage] = useState(1);
+  const [expSort, setExpSort] = useState<ExpSortConfig>(null);
+  
   const [isAddExp, setIsAddExp] = useState(false);
   const [editExpTarget, setEditExpTarget] = useState<Expense | null>(null);
   const pageSize = 10;
@@ -58,13 +65,97 @@ function FuelPage() {
     }
   };
 
+  const handleDeleteFuelLog = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this fuel log?")) {
+      try {
+        await deleteFuelLog(id);
+        await loadData();
+      } catch (e: any) { alert(e.message); }
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this expense record?")) {
+      try {
+        await deleteExpense(id);
+        await loadData();
+      } catch (e: any) { alert(e.message); }
+    }
+  };
+
+  const handleFuelSort = (key: keyof FuelLog | 'vehicleReg') => {
+    let direction: "asc" | "desc" = "asc";
+    if (fuelSort && fuelSort.key === key && fuelSort.direction === "asc") direction = "desc";
+    setFuelSort({ key, direction });
+  };
+
+  const FuelSortIcon = ({ columnKey }: { columnKey: keyof FuelLog | 'vehicleReg' }) => {
+    if (fuelSort?.key !== columnKey) return null;
+    return fuelSort.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
+  const handleExpSort = (key: keyof Expense | 'vehicleReg' | 'total') => {
+    let direction: "asc" | "desc" = "asc";
+    if (expSort && expSort.key === key && expSort.direction === "asc") direction = "desc";
+    setExpSort({ key, direction });
+  };
+
+  const ExpSortIcon = ({ columnKey }: { columnKey: keyof Expense | 'vehicleReg' | 'total' }) => {
+    if (expSort?.key !== columnKey) return null;
+    return expSort.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
+  const filteredLogs = useMemo(() => {
+    let result = [...logs];
+    if (fuelSort) {
+      result.sort((a, b) => {
+        let valA: any = a[fuelSort.key as keyof FuelLog];
+        let valB: any = b[fuelSort.key as keyof FuelLog];
+        
+        if (fuelSort.key === 'vehicleReg') {
+          valA = vehicles.find(v => v.id === a.vehicleId)?.regNumber || '';
+          valB = vehicles.find(v => v.id === b.vehicleId)?.regNumber || '';
+        }
+
+        if (valA < valB) return fuelSort.direction === "asc" ? -1 : 1;
+        if (valA > valB) return fuelSort.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [logs, vehicles, fuelSort]);
+
+  const filteredExp = useMemo(() => {
+    let result = [...exp];
+    if (expSort) {
+      result.sort((a, b) => {
+        let valA: any = a[expSort.key as keyof Expense];
+        let valB: any = b[expSort.key as keyof Expense];
+        
+        if (expSort.key === 'vehicleReg') {
+          valA = vehicles.find(v => v.id === a.vehicleId)?.regNumber || '';
+          valB = vehicles.find(v => v.id === b.vehicleId)?.regNumber || '';
+        }
+        if (expSort.key === 'total') {
+          valA = a.toll + a.other;
+          valB = b.toll + b.other;
+        }
+
+        if (valA < valB) return expSort.direction === "asc" ? -1 : 1;
+        if (valA > valB) return expSort.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [exp, vehicles, expSort]);
+
   const totalOps = logs.reduce((s, l) => s + l.cost, 0) + exp.reduce((s, e) => s + (e.toll + e.other), 0);
   
-  const totalPages = Math.ceil(logs.length / pageSize);
-  const paginatedLogs = logs.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filteredLogs.length / pageSize);
+  const paginatedLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
 
-  const totalExpPages = Math.ceil(exp.length / pageSize);
-  const paginatedExp = exp.slice((expPage - 1) * pageSize, expPage * pageSize);
+  const totalExpPages = Math.ceil(filteredExp.length / pageSize);
+  const paginatedExp = filteredExp.slice((expPage - 1) * pageSize, expPage * pageSize);
 
   return (
     <>
@@ -95,10 +186,18 @@ function FuelPage() {
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Liters</TableHead>
-              <TableHead className="text-right">Cost</TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleFuelSort("vehicleReg")}>
+                Vehicle <FuelSortIcon columnKey="vehicleReg" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleFuelSort("date")}>
+                Date <FuelSortIcon columnKey="date" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleFuelSort("liters")}>
+                Liters <FuelSortIcon columnKey="liters" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleFuelSort("cost")}>
+                Cost <FuelSortIcon columnKey="cost" />
+              </TableHead>
               <TableHead className="w-[80px] text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -112,9 +211,14 @@ function FuelPage() {
                   <TableCell className="text-right">{l.liters} L</TableCell>
                   <TableCell className="text-right">₹{l.cost.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setEditTarget(l)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setEditTarget(l)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteFuelLog(l.id)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-danger/20 hover:text-danger">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -124,7 +228,7 @@ function FuelPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <div className="text-xs text-muted-foreground">
-              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, logs.length)} of {logs.length} entries
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredLogs.length)} of {filteredLogs.length} entries
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>
@@ -148,11 +252,21 @@ function FuelPage() {
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Toll</TableHead>
-              <TableHead className="text-right">Other</TableHead>
-              <TableHead className="text-right">Total Amount</TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleExpSort("vehicleReg")}>
+                Vehicle <ExpSortIcon columnKey="vehicleReg" />
+              </TableHead>
+              <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleExpSort("date")}>
+                Date <ExpSortIcon columnKey="date" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleExpSort("toll")}>
+                Toll <ExpSortIcon columnKey="toll" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleExpSort("other")}>
+                Other <ExpSortIcon columnKey="other" />
+              </TableHead>
+              <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleExpSort("total")}>
+                Total Amount <ExpSortIcon columnKey="total" />
+              </TableHead>
               <TableHead className="w-[80px] text-right"></TableHead>
             </TableRow>
           </TableHeader>
@@ -167,9 +281,14 @@ function FuelPage() {
                   <TableCell className="text-right">₹{e.other.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-medium">₹{(e.toll + e.other).toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setEditExpTarget(e)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setEditExpTarget(e)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteExpense(e.id)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-danger/20 hover:text-danger">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -179,7 +298,7 @@ function FuelPage() {
         {totalExpPages > 1 && (
           <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <div className="text-xs text-muted-foreground">
-              Showing {(expPage - 1) * pageSize + 1} to {Math.min(expPage * pageSize, exp.length)} of {exp.length} entries
+              Showing {(expPage - 1) * pageSize + 1} to {Math.min(expPage * pageSize, filteredExp.length)} of {filteredExp.length} entries
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setExpPage((p) => Math.max(1, p - 1))} disabled={expPage === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>

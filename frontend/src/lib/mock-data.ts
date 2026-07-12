@@ -10,15 +10,6 @@ export type Vehicle = {
   status: VehicleStatus;
 };
 
-export const vehicles: Vehicle[] = [
-  { id: "v1", reg: "GTO-A98721", model: "Van-05", type: "Van", capacity: 500, odometer: 6_30_000, acqCost: 94_000, status: "Available" },
-  { id: "v2", reg: "GTO-A88491", model: "Truck-8", type: "Truck", capacity: 3000, odometer: 2_10_000, acqCost: 189_000, status: "On Trip" },
-  { id: "v3", reg: "GTO-A00120", model: "Mini-05", type: "Mini", capacity: 250, odometer: 4_10_000, acqCost: 60_000, status: "In Shop" },
-  { id: "v4", reg: "GTO-A00081", model: "Van-04", type: "Van", capacity: 480, odometer: 8_10_000, acqCost: 84_000, status: "Retired" },
-  { id: "v5", reg: "GTO-B11245", model: "Truck-12", type: "Truck", capacity: 5000, odometer: 1_20_000, acqCost: 240_000, status: "Available" },
-  { id: "v6", reg: "GTO-C55420", model: "Mini-03", type: "Mini", capacity: 300, odometer: 3_45_000, acqCost: 68_000, status: "Available" },
-];
-
 export type DriverStatus = "Available" | "On Trip" | "Off Duty" | "Suspended";
 export type Driver = {
   id: string;
@@ -32,14 +23,6 @@ export type Driver = {
   status: DriverStatus;
 };
 
-export const drivers: Driver[] = [
-  { id: "d1", name: "Alex Morgan", license: "DL-999015", category: "LMV", expiry: "2026-08-14", contact: "+91 98120 xxxxx", tripCompl: 96, safety: 92, status: "Available" },
-  { id: "d2", name: "Jose Delacruz", license: "DL-441420", category: "HMV", expiry: "2026-03-30", contact: "+91 98322 xxxxx", tripCompl: 97, safety: 88, status: "Suspended" },
-  { id: "d3", name: "Maya Patel", license: "DL-772035", category: "LMV", expiry: "2026-09-22", contact: "+91 97441 xxxxx", tripCompl: 92, safety: 76, status: "On Trip" },
-  { id: "d4", name: "Nikhil Rao", license: "DL-410975", category: "HMV", expiry: "2026-07-30", contact: "+91 99110 xxxxx", tripCompl: 88, safety: 55, status: "Off Duty" },
-  { id: "d5", name: "Priya Shah", license: "DL-661200", category: "LMV", expiry: "2027-01-11", contact: "+91 90333 xxxxx", tripCompl: 99, safety: 95, status: "Available" },
-];
-
 export type TripStatus = "Draft" | "Dispatched" | "On Trip" | "Completed" | "Cancelled";
 export type Trip = {
   id: string;
@@ -51,14 +34,6 @@ export type Trip = {
   eta: string;
   status: TripStatus;
 };
-
-export const trips: Trip[] = [
-  { id: "TR001", vehicleReg: "GTO-A98721", driver: "Alex Morgan", source: "Ranchhannagar Depot", destination: "Industrial Area", cargoKg: 420, eta: "45 min", status: "On Trip" },
-  { id: "TR002", vehicleReg: "GTO-B11245", driver: "Jose Delacruz", source: "Central Warehouse", destination: "Sector 7 Mall", cargoKg: 2800, eta: "2h 10m", status: "Completed" },
-  { id: "TR003", vehicleReg: "GTO-C55420", driver: "Maya Patel", source: "Karol Depot", destination: "North Yard", cargoKg: 210, eta: "1h 05m", status: "Dispatched" },
-  { id: "TR004", vehicleReg: "GTO-A88491", driver: "Priya Shah", source: "East Hub", destination: "Airport Cargo", cargoKg: 3100, eta: "3h 20m", status: "Draft" },
-  { id: "TR005", vehicleReg: "GTO-A00120", driver: "Nikhil Rao", source: "West Storage", destination: "Client Site B", cargoKg: 260, eta: "50 min", status: "Cancelled" },
-];
 
 export const kpi = {
   activeVehicles: 53,
@@ -80,28 +55,13 @@ export const monthlyFinancials = [
   { month: "Jul", cost: 34070, revenue: 61000 },
 ];
 
-export const fuelLogs = [
-  { id: "f1", vehicle: "GTO-A98721", date: "2026-07-08", liters: 42, cost: 3980 },
-  { id: "f2", vehicle: "GTO-A88491", date: "2026-07-06", liters: 70, cost: 6600 },
-  { id: "f3", vehicle: "GTO-C55420", date: "2026-07-05", liters: 25, cost: 2360 },
-  { id: "f4", vehicle: "GTO-B11245", date: "2026-07-03", liters: 95, cost: 8920 },
+export const roiPerVehicle = [
+  { vehicle: "GTO-A98721", roi: 42 },
+  { vehicle: "GTO-A88491", roi: 61 },
+  { vehicle: "GTO-C55420", roi: 18 },
+  { vehicle: "GTO-B11245", roi: -5 },
+  { vehicle: "TRK-12", roi: 55 },
 ];
-
-export const serviceLogs = [
-  { id: "s1", vehicle: "GTO-A98721", service: "Oil Change", cost: 2200, status: "In Shop" },
-  { id: "s2", vehicle: "GTO-A88491", service: "Engine Repair", cost: 18000, status: "Completed" },
-  { id: "s3", vehicle: "GTO-C55420", service: "Tyre Replace", cost: 6200, status: "In Shop" },
-];
-
-export const expenses = [
-  { id: "e1", vehicle: "GTO-A98721", toll: 120, other: 0, amount: 120, status: "Available" },
-  { id: "e2", vehicle: "TRK-12", toll: 340, other: 150, amount: 15000, status: "Completed" },
-];
-
-export const roiPerVehicle = vehicles.slice(0, 5).map((v, i) => ({
-  vehicle: v.reg,
-  roi: [42, 61, 18, -5, 55][i],
-}));
 
 export const fuelEfficiency = [
   { month: "Jan", kml: 7.8 },

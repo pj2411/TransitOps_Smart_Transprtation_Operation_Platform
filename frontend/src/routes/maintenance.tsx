@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getVehicles, getMaintenanceLogs, openMaintenance, closeMaintenance } from "@/lib/store";
+import { getVehicles, getMaintenanceLogs, openMaintenance, closeMaintenance, updateMaintenanceLog, deleteMaintenanceLog } from "@/lib/store";
 import type { Vehicle, MaintenanceLog } from "@/types";
-import { Plus, CheckCircle2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, CheckCircle2, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Edit2, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/maintenance")({ component: MaintenancePage });
+
+type SortConfig = { key: keyof MaintenanceLog | 'vehicleReg'; direction: "asc" | "desc" } | null;
 
 function MaintenancePage() {
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
@@ -20,6 +23,8 @@ function MaintenancePage() {
   const [form, setForm] = useState({ vehicleId: "", service: "Oil Change", cost: 0 });
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [editTarget, setEditTarget] = useState<MaintenanceLog | null>(null);
   const pageSize = 10;
 
   const loadData = async () => {
@@ -38,14 +43,44 @@ function MaintenancePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [q]);
+  }, [q, sortConfig]);
 
-  const filteredLogs = logs.filter((l) => {
-    const v = vehicles.find((x) => x.id === l.vehicleId);
-    if (!v) return true;
-    return q === "" || v.regNumber.toLowerCase().includes(q.toLowerCase());
-  });
-  
+  const handleSort = (key: keyof MaintenanceLog | 'vehicleReg') => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
+    setSortConfig({ key, direction });
+  };
+
+  const SortIcon = ({ columnKey }: { columnKey: keyof MaintenanceLog | 'vehicleReg' }) => {
+    if (sortConfig?.key !== columnKey) return null;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-1 inline h-3 w-3" /> : <ArrowDown className="ml-1 inline h-3 w-3" />;
+  };
+
+  const filteredLogs = useMemo(() => {
+    let result = logs.filter((l) => {
+      const v = vehicles.find((x) => x.id === l.vehicleId);
+      if (!v) return true;
+      return q === "" || v.regNumber.toLowerCase().includes(q.toLowerCase());
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA: any = a[sortConfig.key as keyof MaintenanceLog];
+        let valB: any = b[sortConfig.key as keyof MaintenanceLog];
+        
+        if (sortConfig.key === 'vehicleReg') {
+          valA = vehicles.find(v => v.id === a.vehicleId)?.regNumber || '';
+          valB = vehicles.find(v => v.id === b.vehicleId)?.regNumber || '';
+        }
+
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [logs, vehicles, q, sortConfig]);
+
   const totalPages = Math.ceil(filteredLogs.length / pageSize);
   const paginatedLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
 
@@ -71,6 +106,17 @@ function MaintenancePage() {
       await loadData();
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this maintenance record?")) {
+      try {
+        await deleteMaintenanceLog(id);
+        await loadData();
+      } catch (e: any) {
+        alert(e.message);
+      }
     }
   };
 
@@ -141,13 +187,25 @@ function MaintenancePage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Opened</TableHead>
-                <TableHead>Closed</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("vehicleReg")}>
+                  Vehicle <SortIcon columnKey="vehicleReg" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("serviceType")}>
+                  Service <SortIcon columnKey="serviceType" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("dateOpened")}>
+                  Opened <SortIcon columnKey="dateOpened" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("dateClosed")}>
+                  Closed <SortIcon columnKey="dateClosed" />
+                </TableHead>
+                <TableHead className="cursor-pointer text-right hover:text-foreground" onClick={() => handleSort("cost")}>
+                  Cost <SortIcon columnKey="cost" />
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-foreground" onClick={() => handleSort("status")}>
+                  Status <SortIcon columnKey="status" />
+                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -162,11 +220,19 @@ function MaintenancePage() {
                     <TableCell className="text-right">₹{l.cost.toLocaleString()}</TableCell>
                     <TableCell><StatusBadge status={l.status === 'Open' ? 'In Shop' : 'Available'} /></TableCell>
                     <TableCell className="text-right">
-                      {l.status === 'Open' && (
-                        <Button size="sm" variant="ghost" onClick={() => completeLog(l.id)} className="h-7 gap-1 text-xs text-success hover:text-success">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Close
+                      <div className="flex justify-end gap-1">
+                        {l.status === 'Open' && (
+                          <Button size="sm" variant="ghost" onClick={() => completeLog(l.id)} className="h-7 gap-1 text-xs text-success hover:text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Close
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => setEditTarget(l)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
+                          <Edit2 className="h-3.5 w-3.5" />
                         </Button>
-                      )}
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(l.id)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-danger/20 hover:text-danger">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -188,6 +254,83 @@ function MaintenancePage() {
           )}
         </Card>
       </div>
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        {editTarget && (
+          <EditMaintenanceModal
+            log={editTarget}
+            vehicles={vehicles}
+            onSave={async (updated) => {
+              try {
+                await updateMaintenanceLog(updated);
+                await loadData();
+                setEditTarget(null);
+              } catch (e: any) { alert(e.message); }
+            }}
+          />
+        )}
+      </Dialog>
     </>
+  );
+}
+
+function EditMaintenanceModal({ log, vehicles, onSave }: { log: MaintenanceLog, vehicles: Vehicle[], onSave: (l: MaintenanceLog) => void }) {
+  const [form, setForm] = useState<MaintenanceLog>(log);
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>Edit Maintenance Log</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-4 py-2">
+        <div className="space-y-1.5">
+          <Label>Vehicle</Label>
+          <Select value={form.vehicleId} onValueChange={(v) => setForm({ ...form, vehicleId: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+            <SelectContent>
+              {vehicles.map((v) => (
+                <SelectItem key={v.id} value={v.id}>{v.regNumber}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Service Type</Label>
+          <Select value={form.serviceType} onValueChange={(v) => setForm({ ...form, serviceType: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Oil Change">Oil Change</SelectItem>
+              <SelectItem value="Engine Repair">Engine Repair</SelectItem>
+              <SelectItem value="Tyre Replace">Tyre Replace</SelectItem>
+              <SelectItem value="Brake Service">Brake Service</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Cost (₹)</Label>
+          <Input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Status</Label>
+          <Select value={form.status} onValueChange={(v: "Open" | "Closed") => setForm({ ...form, status: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Open">Open</SelectItem>
+              <SelectItem value="Closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Date Opened</Label>
+          <Input type="date" value={form.dateOpened} onChange={(e) => setForm({ ...form, dateOpened: e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Date Closed</Label>
+          <Input type="date" value={form.dateClosed || ""} onChange={(e) => setForm({ ...form, dateClosed: e.target.value || null })} className="border-border bg-canvas" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => onSave(form)}>Update Record</Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
