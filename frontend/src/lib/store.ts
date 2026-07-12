@@ -187,6 +187,16 @@ export async function addTrip(t: Omit<Trip, 'id' | 'createdAt'>): Promise<Trip> 
   return mapTrip(data);
 }
 
+export async function updateTrip(t: Trip): Promise<Trip> {
+  const { data, error } = await supabase.from('trips').update({
+    source: t.source, destination: t.destination, vehicle_id: t.vehicleId, driver_id: t.driverId,
+    cargo_weight: t.cargoWeight, planned_distance: t.plannedDistance, revenue: t.revenue,
+    remarks: t.remarks
+  }).eq('id', t.id).select().single();
+  if (error) throw new Error(error.message);
+  return mapTrip(data);
+}
+
 export async function dispatchTrip(tripId: string): Promise<void> {
   const { data: trip, error } = await supabase.from('trips').select('status, vehicle_id, driver_id').eq('id', tripId).single();
   if (error || !trip) throw new Error('Trip not found');

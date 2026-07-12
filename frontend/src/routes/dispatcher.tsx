@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getTrips, getDispatchVehicles, getDispatchDrivers, getVehicles, getDrivers, addTrip, dispatchTrip, completeTrip, cancelTrip } from "@/lib/store";
+import { getTrips, getDispatchVehicles, getDispatchDrivers, getVehicles, getDrivers, addTrip, dispatchTrip, completeTrip, cancelTrip, updateTrip } from "@/lib/store";
 import type { Trip, TripStatus, Vehicle, Driver } from "@/types";
-import { AlertOctagon, CheckCircle2, PlayCircle, Send, XCircle } from "lucide-react";
+import { AlertOctagon, CheckCircle2, PlayCircle, Send, XCircle, Edit2, FileText, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/dispatcher")({ component: Dispatcher });
 
@@ -29,6 +30,18 @@ function Dispatcher() {
     driverId: "",
     cargo: 400,
   });
+
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  
+  const [editTarget, setEditTarget] = useState<Trip | null>(null);
+  const [profileTarget, setProfileTarget] = useState<Trip | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<Trip | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
 
   const loadData = async () => {
     try {
@@ -57,10 +70,9 @@ function Dispatcher() {
       if (currentStatus === 'Draft') {
         await dispatchTrip(id);
       } else if (currentStatus === 'On Trip' || currentStatus === 'Dispatched') {
-        // Mock completing with arbitrary odometer/fuel for now since it's a demo
         const t = board.find(x => x.id === id);
-        const v = allVehicles.find(x => x.id === t?.vehicleId);
-        await completeTrip(id, (v?.odometer || 0) + 150, 40);
+        if (t) setCompleteTarget(t);
+        return;
       }
       await loadData();
     } catch (e: any) {
@@ -101,6 +113,15 @@ function Dispatcher() {
   };
 
   const stageIndex = (s: TripStatus) => flow.indexOf(s);
+
+  const filtered = board.filter(t => 
+    q === "" || t.id.toLowerCase().includes(q.toLowerCase()) || 
+    t.source.toLowerCase().includes(q.toLowerCase()) || 
+    t.destination.toLowerCase().includes(q.toLowerCase())
+  );
+  
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <>
@@ -193,10 +214,19 @@ function Dispatcher() {
         </Card>
 
         <Card className="border-border bg-panel">
-          <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4">
             <div>
               <div className="text-sm font-semibold">Live Board</div>
               <div className="text-xs text-muted-foreground">Move trips through their lifecycle</div>
+            </div>
+            <div className="relative w-full max-w-[200px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search trip ID or location..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="h-8 border-border bg-canvas pl-8 text-xs"
+              />
             </div>
           </div>
           <Table>
@@ -209,14 +239,16 @@ function Dispatcher() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {board.map((t) => {
+              {paginated.map((t) => {
                 const canAdvance = t.status !== "Completed" && t.status !== "Cancelled";
                 const v = allVehicles.find(x => x.id === t.vehicleId);
                 const d = allDrivers.find(x => x.id === t.driverId);
                 return (
                   <TableRow key={t.id} className="border-border hover:bg-canvas">
                     <TableCell>
-                      <div className="font-medium">{t.id.slice(0, 8)}</div>
+                      <button onClick={() => setProfileTarget(t)} className="text-left font-medium text-foreground hover:text-primary hover:underline">
+                        {t.id.slice(0, 8)}
+                      </button>
                       <div className="text-xs text-muted-foreground">{v?.regNumber || 'Unknown'} · {d?.name || 'Unknown'}</div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -224,7 +256,12 @@ function Dispatcher() {
                     </TableCell>
                     <TableCell><StatusBadge status={t.status} /></TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {canAdvance && (
+                          <Button size="sm" variant="ghost" onClick={() => setEditTarget(t)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {canAdvance && (
                           <Button size="sm" variant="ghost" onClick={() => advance(t.id, t.status)} className="h-7 gap-1 text-xs">
                             {t.status === "Dispatched" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <PlayCircle className="h-3.5 w-3.5" />}
@@ -243,8 +280,165 @@ function Dispatcher() {
               })}
             </TableBody>
           </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <div className="text-xs text-muted-foreground">
+                Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length} entries
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                <div className="text-xs text-foreground">Page {page} of {totalPages}</div>
+                <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        {editTarget && (
+          <EditTripDialog
+            trip={editTarget}
+            vehicles={allVehicles}
+            drivers={allDrivers}
+            onSave={async (updated) => {
+              try {
+                await updateTrip(updated);
+                await loadData();
+                setEditTarget(null);
+              } catch (e: any) { alert(e.message); }
+            }}
+          />
+        )}
+      </Dialog>
+      <Dialog open={!!profileTarget} onOpenChange={(o) => !o && setProfileTarget(null)}>
+        {profileTarget && <TripProfileDialog trip={profileTarget} vehicle={allVehicles.find(v => v.id === profileTarget.vehicleId)} driver={allDrivers.find(d => d.id === profileTarget.driverId)} />}
+      </Dialog>
+      <Dialog open={!!completeTarget} onOpenChange={(o) => !o && setCompleteTarget(null)}>
+        {completeTarget && (
+          <CompleteTripDialog
+            trip={completeTarget}
+            onComplete={async (odo, fuel) => {
+              try {
+                await completeTrip(completeTarget.id, odo, fuel);
+                await loadData();
+                setCompleteTarget(null);
+              } catch (e: any) { alert(e.message); }
+            }}
+          />
+        )}
+      </Dialog>
     </>
+  );
+}
+
+function EditTripDialog({ trip, vehicles, drivers, onSave }: { trip: Trip, vehicles: Vehicle[], drivers: Driver[], onSave: (t: Trip) => void }) {
+  const [form, setForm] = useState<Trip>(trip);
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>Edit Trip</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-4 py-2">
+        <div className="space-y-1.5">
+          <Label>Source</Label>
+          <Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Destination</Label>
+          <Input value={form.destination} onChange={(e) => setForm({ ...form, destination: e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label>Cargo Weight (kg)</Label>
+          <Input type="number" value={form.cargoWeight} onChange={(e) => setForm({ ...form, cargoWeight: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => onSave(form)}>Update Trip</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function TripProfileDialog({ trip, vehicle, driver }: { trip: Trip, vehicle?: Vehicle, driver?: Driver }) {
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>Trip Profile</DialogTitle>
+      </DialogHeader>
+      <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/20 text-primary">
+          <FileText className="h-8 w-8" />
+        </div>
+        <h2 className="text-lg font-semibold font-mono text-foreground">{trip.id}</h2>
+        <StatusBadge status={trip.status} />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+        <div>
+          <div className="text-xs text-muted-foreground">Route</div>
+          <div className="text-sm font-medium">{trip.source} → {trip.destination}</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Cargo</div>
+          <div className="text-sm">{trip.cargoWeight.toLocaleString()} kg</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Driver</div>
+          <div className="text-sm">{driver?.name || 'Unknown'}</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Vehicle</div>
+          <div className="text-sm">{vehicle?.regNumber || 'Unknown'} ({vehicle?.maxLoadCapacity}kg cap)</div>
+        </div>
+        {trip.status === "Completed" && (
+          <>
+            <div>
+              <div className="text-xs text-muted-foreground">Final Odometer</div>
+              <div className="text-sm font-medium">{trip.finalOdometer}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Fuel Used</div>
+              <div className="text-sm font-medium text-danger">{trip.fuelUsed} L</div>
+            </div>
+          </>
+        )}
+      </div>
+    </DialogContent>
+  );
+}
+
+function CompleteTripDialog({ trip, onComplete }: { trip: Trip, onComplete: (odo: number, fuel: number) => void }) {
+  const [odo, setOdo] = useState("");
+  const [fuel, setFuel] = useState("");
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>Complete Trip</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-2">
+        <div className="text-sm text-muted-foreground">
+          You are completing trip <span className="font-mono text-foreground">{trip.id.slice(0, 8)}</span>. 
+          Please enter the final readings below.
+        </div>
+        <div className="space-y-1.5">
+          <Label>Final Odometer</Label>
+          <Input type="number" placeholder="e.g. 54200" value={odo} onChange={(e) => setOdo(e.target.value)} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Fuel Used (Liters)</Label>
+          <Input type="number" placeholder="e.g. 45" value={fuel} onChange={(e) => setFuel(e.target.value)} className="border-border bg-canvas" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button 
+          disabled={!odo || !fuel}
+          className="bg-primary text-primary-foreground hover:bg-primary/90" 
+          onClick={() => onComplete(+odo, +fuel)}
+        >
+          Confirm Completion
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
