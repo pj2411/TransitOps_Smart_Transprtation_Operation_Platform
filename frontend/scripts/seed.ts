@@ -1,8 +1,8 @@
 import xlsx from "xlsx";
 import { createClient } from "@supabase/supabase-js";
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import crypto from 'crypto';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
