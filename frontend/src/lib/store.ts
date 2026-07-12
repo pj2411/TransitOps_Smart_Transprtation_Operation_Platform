@@ -313,6 +313,14 @@ export async function addExpense(e: Omit<Expense, 'id'>): Promise<Expense> {
   return mapExpense(data);
 }
 
+export async function updateExpense(e: Expense): Promise<Expense> {
+  const { data, error } = await supabase.from('expenses').update({
+    trip_id: e.tripId, vehicle_id: e.vehicleId, toll: e.toll, other: e.other, date: e.date
+  }).eq('id', e.id).select().single();
+  if (error) throw new Error(error.message);
+  return mapExpense(data);
+}
+
 /* ══════════════════════════════════════════════════════════════
    SETTINGS & RBAC
    ══════════════════════════════════════════════════════════════ */

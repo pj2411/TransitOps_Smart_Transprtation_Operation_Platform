@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getVehicles, getFuelLogs, getExpenses, addFuelLog, updateFuelLog } from "@/lib/store";
+import { getVehicles, getFuelLogs, getExpenses, addFuelLog, updateFuelLog, addExpense, updateExpense } from "@/lib/store";
 import type { Vehicle, FuelLog, Expense } from "@/types";
 import { Fuel, Plus, Receipt, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +22,9 @@ function FuelPage() {
   const [form, setForm] = useState({ vehicleId: "", liters: 40, cost: 0 });
   const [editTarget, setEditTarget] = useState<FuelLog | null>(null);
   const [page, setPage] = useState(1);
+  const [expPage, setExpPage] = useState(1);
+  const [isAddExp, setIsAddExp] = useState(false);
+  const [editExpTarget, setEditExpTarget] = useState<Expense | null>(null);
   const pageSize = 10;
 
   const loadData = async () => {
@@ -59,6 +62,9 @@ function FuelPage() {
   
   const totalPages = Math.ceil(logs.length / pageSize);
   const paginatedLogs = logs.slice((page - 1) * pageSize, page * pageSize);
+
+  const totalExpPages = Math.ceil(exp.length / pageSize);
+  const paginatedExp = exp.slice((expPage - 1) * pageSize, expPage * pageSize);
 
   return (
     <>
@@ -135,7 +141,7 @@ function FuelPage() {
             <Receipt className="h-4 w-4 text-info" />
             <div className="text-sm font-semibold">Other Expenses (Tolls / Misc)</div>
           </div>
-          <Button size="sm" variant="outline" className="border-border bg-canvas">
+          <Button size="sm" variant="outline" className="border-border bg-canvas" onClick={() => setIsAddExp(true)}>
             <Plus className="mr-1 h-3.5 w-3.5" /> Add Expense
           </Button>
         </div>
@@ -143,25 +149,45 @@ function FuelPage() {
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
               <TableHead>Vehicle</TableHead>
+              <TableHead>Date</TableHead>
               <TableHead className="text-right">Toll</TableHead>
               <TableHead className="text-right">Other</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Total Amount</TableHead>
+              <TableHead className="w-[80px] text-right"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {exp.map((e) => {
+            {paginatedExp.map((e) => {
               const v = vehicles.find(x => x.id === e.vehicleId);
               return (
                 <TableRow key={e.id} className="border-border hover:bg-canvas">
                   <TableCell className="font-medium">{v?.regNumber || 'Unknown'}</TableCell>
+                  <TableCell className="text-muted-foreground">{new Date(e.date).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">₹{e.toll.toLocaleString()}</TableCell>
                   <TableCell className="text-right">₹{e.other.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">₹{(e.toll + e.other).toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-medium">₹{(e.toll + e.other).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" variant="ghost" onClick={() => setEditExpTarget(e)} className="h-7 w-7 p-0 text-muted-foreground hover:bg-panel hover:text-foreground">
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
+        {totalExpPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <div className="text-xs text-muted-foreground">
+              Showing {(expPage - 1) * pageSize + 1} to {Math.min(expPage * pageSize, exp.length)} of {exp.length} entries
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setExpPage((p) => Math.max(1, p - 1))} disabled={expPage === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+              <div className="text-xs text-foreground">Page {expPage} of {totalExpPages}</div>
+              <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setExpPage((p) => Math.min(totalExpPages, p + 1))} disabled={expPage === totalExpPages}><ChevronRight className="h-3.5 w-3.5" /></Button>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between border-t border-border p-4">
           <div className="text-xs text-muted-foreground">Total operational cost (fuel + expenses)</div>
           <div className="text-lg font-semibold">₹{totalOps.toLocaleString()}</div>
@@ -178,6 +204,29 @@ function FuelPage() {
                 await updateFuelLog(updated);
                 await loadData();
                 setEditTarget(null);
+              } catch (e: any) { alert(e.message); }
+            }}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={isAddExp || !!editExpTarget} onOpenChange={(o) => {
+        if (!o) { setIsAddExp(false); setEditExpTarget(null); }
+      }}>
+        {(isAddExp || editExpTarget) && (
+          <ExpenseFormDialog
+            expense={editExpTarget || undefined}
+            vehicles={vehicles}
+            onSave={async (exp) => {
+              try {
+                if (exp.id) {
+                  await updateExpense(exp);
+                } else {
+                  await addExpense(exp);
+                }
+                await loadData();
+                setIsAddExp(false);
+                setEditExpTarget(null);
               } catch (e: any) { alert(e.message); }
             }}
           />
@@ -219,6 +268,48 @@ function EditFuelDialog({ log, vehicles, onSave }: { log: FuelLog, vehicles: Veh
       </div>
       <DialogFooter>
         <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => onSave(form)}>Update Log</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function ExpenseFormDialog({ expense, vehicles, onSave }: { expense?: Expense, vehicles: Vehicle[], onSave: (e: Expense) => void }) {
+  const [form, setForm] = useState<Expense>(expense || {
+    id: "", tripId: null, vehicleId: "", toll: 0, other: 0, date: new Date().toISOString().split('T')[0]
+  });
+
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>{expense ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-4 py-2">
+        <div className="col-span-2 space-y-1.5">
+          <Label>Vehicle</Label>
+          <Select value={form.vehicleId} onValueChange={(v) => setForm({ ...form, vehicleId: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue placeholder="Select vehicle..." /></SelectTrigger>
+            <SelectContent>
+              {vehicles.map((v) => <SelectItem key={v.id} value={v.id}>{v.regNumber}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Toll (₹)</Label>
+          <Input type="number" value={form.toll} onChange={(e) => setForm({ ...form, toll: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Other Expense (₹)</Label>
+          <Input type="number" value={form.other} onChange={(e) => setForm({ ...form, other: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label>Date</Label>
+          <Input type="date" value={form.date.split('T')[0]} onChange={(e) => setForm({ ...form, date: e.target.value })} className="border-border bg-canvas" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button disabled={!form.vehicleId} className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => onSave(form)}>
+          {expense ? 'Update Expense' : 'Add Expense'}
+        </Button>
       </DialogFooter>
     </DialogContent>
   );
