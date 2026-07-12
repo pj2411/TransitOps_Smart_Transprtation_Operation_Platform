@@ -1,6 +1,6 @@
 /* ──────────────────── TransitOps Type Definitions ──────────────────── */
 
-export type UserRole = 'Fleet Manager' | 'Dispatcher' | 'Safety Officer' | 'Financial Analyst';
+export type UserRole = 'Fleet Manager' | 'Driver' | 'Safety Officer' | 'Financial Analyst';
 export type VehicleStatus = 'Available' | 'On Trip' | 'In Shop' | 'Retired';
 export type DriverStatus = 'Available' | 'On Trip' | 'Off Duty' | 'Suspended';
 export type TripStatus = 'Draft' | 'Dispatched' | 'Completed' | 'Cancelled';

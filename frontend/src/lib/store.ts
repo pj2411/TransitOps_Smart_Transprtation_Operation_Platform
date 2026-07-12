@@ -352,3 +352,48 @@ export function hasAccess(role: UserRole, module: string): 'full' | 'view' | 'no
   const p = cachedPerms.find(x => x.role === role && x.module === module);
   return p?.access || 'none';
 }
+
+function mapUser(row: any): User {
+  return {
+    id: row.id,
+    email: row.email,
+    password: row.password,
+    role: row.role as UserRole,
+    failedAttempts: row.failed_attempts || 0,
+    lockedUntil: row.locked_until
+  };
+}
+
+export async function getUsers(): Promise<User[]> {
+  const { data } = await supabase.from('users').select('*').order('email');
+  return (data || []).map(mapUser);
+}
+
+export async function addUser(u: Omit<User, 'id' | 'failedAttempts' | 'lockedUntil'>): Promise<User> {
+  const { data, error } = await supabase.from('users').insert({
+    email: u.email,
+    password: u.password,
+    role: u.role,
+    failed_attempts: 0,
+    locked_until: null
+  }).select().single();
+  if (error) throw new Error(error.message);
+  return mapUser(data);
+}
+
+export async function updateUser(u: User): Promise<User> {
+  const { data, error } = await supabase.from('users').update({
+    email: u.email,
+    password: u.password,
+    role: u.role,
+    failed_attempts: u.failedAttempts,
+    locked_until: u.lockedUntil
+  }).eq('id', u.id).select().single();
+  if (error) throw new Error(error.message);
+  return mapUser(data);
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
