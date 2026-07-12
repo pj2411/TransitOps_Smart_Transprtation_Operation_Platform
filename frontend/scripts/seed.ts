@@ -36,10 +36,10 @@ async function seed() {
   // 1. Users
   console.log('--- Seeding Users ---');
   const mockUsers = [
-    { id: crypto.randomUUID(), email: 'admin@transitops.com', password: 'password123', role: 'Fleet Manager', failed_attempts: 0, locked_until: null },
-    { id: crypto.randomUUID(), email: 'dispatcher@transitops.com', password: 'password123', role: 'Dispatcher', failed_attempts: 0, locked_until: null },
-    { id: crypto.randomUUID(), email: 'safety@transitops.com', password: 'password123', role: 'Safety Officer', failed_attempts: 0, locked_until: null },
-    { id: crypto.randomUUID(), email: 'finance@transitops.com', password: 'password123', role: 'Financial Analyst', failed_attempts: 0, locked_until: null },
+    { id: crypto.randomUUID(), email: 'fleet@transitops.in', password: 'fleet123', role: 'Fleet Manager', failed_attempts: 0, locked_until: null },
+    { id: crypto.randomUUID(), email: 'dispatch@transitops.in', password: 'dispatch123', role: 'Dispatcher', failed_attempts: 0, locked_until: null },
+    { id: crypto.randomUUID(), email: 'safety@transitops.in', password: 'safety123', role: 'Safety Officer', failed_attempts: 0, locked_until: null },
+    { id: crypto.randomUUID(), email: 'finance@transitops.in', password: 'finance123', role: 'Financial Analyst', failed_attempts: 0, locked_until: null },
   ];
   
   for (const u of mockUsers) {
