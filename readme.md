@@ -1,17 +1,39 @@
-# TransitOps - Smart Transportation Operation Platform
+# TransitOps
 
-A modern, smart transit operation platform for real-time tracking, fleet management, and scheduling.
+TransitOps is a comprehensive fleet and transportation management platform designed to streamline operations, tracking, and analytics for modern transit companies.
 
-## Architecture & Tech Stack
-This prototype is built using a modern frontend-first approach connected to a live BaaS:
-- **Frontend**: React + TypeScript + Vite
-- **Styling**: Vanilla CSS Variables (Bespoke Dark Mode ERP Theme)
-- **Icons & Charts**: Lucide React, Recharts
-- **Backend/Database**: Supabase (PostgreSQL) with Row Level Security (RLS) and real-time triggers.
+## Overview
+This platform provides a centralized dashboard for managing everything from vehicle maintenance and driver safety scores to live trip dispatching and financial reporting. It features a strict Role-Based Access Control (RBAC) system to ensure different departments—like Fleet Managers, Dispatchers, and Safety Officers—only see the data relevant to their specific workflows.
 
-## Key Features
-- **RBAC**: Role-based access control with distinct permission matrices (Fleet Manager, Dispatcher, Safety Officer, Financial Analyst).
-- **Fleet & Driver Registry**: Full CRUD with conditional validations and live status tracking.
-- **Trip Dispatching**: Real-time vehicle load capacity checking and deployment state machine.
-- **Maintenance & Fuel**: Operational cost tracking that rolls up into financial reporting.
-- **Analytics**: Beautiful Recharts dashboards for calculating Vehicle ROI, Fuel Efficiency, and Fleet Utilization.
+## Technology Stack
+- **Frontend**: React, TypeScript, Vite
+- **Routing**: TanStack Router
+- **Data Fetching**: TanStack Query (React Query)
+- **Styling**: Tailwind CSS v4, custom CSS variables, Shadcn/Radix UI components
+- **Database / Backend**: Supabase (PostgreSQL)
+
+## Features
+- **Secure Authentication & Roles**: Email/password login with strict route protection. User roles control what modules are accessible in the sidebar.
+- **Fleet Registry**: Complete vehicle tracking, including odometer readings, acquisition costs, and real-time status (Available, On Trip, In Shop).
+- **Driver Management**: Track licenses, expiry dates, and driver safety scores to ensure compliance.
+- **Trip Dispatch**: Assign vehicles and drivers to new routes, checking against maximum load capacities, and manage the trip lifecycle.
+- **Maintenance & Fuel Logs**: Record service costs and fuel expenses per vehicle to maintain a healthy fleet.
+- **Financial Analytics**: High-level charts (via Recharts) displaying vehicle ROI, fuel efficiency trends, and overall cost breakdowns.
+
+## Local Development
+
+1. **Install dependencies**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+3. **Access the application**
+   Open your browser to `http://localhost:5173`. 
+
+*Note: The platform connects to a hosted Supabase database instance. Ensure your network allows connections to Supabase.*

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as FuelRouteImport } from './routes/fuel'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as DriversRouteImport } from './routes/drivers'
@@ -26,6 +27,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const MaintenanceRoute = MaintenanceRouteImport.update({
   id: '/maintenance',
   path: '/maintenance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FuelRoute = FuelRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/drivers': typeof DriversRoute
   '/fleet': typeof FleetRoute
   '/fuel': typeof FuelRoute
+  '/login': typeof LoginRoute
   '/maintenance': typeof MaintenanceRoute
   '/settings': typeof SettingsRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/drivers': typeof DriversRoute
   '/fleet': typeof FleetRoute
   '/fuel': typeof FuelRoute
+  '/login': typeof LoginRoute
   '/maintenance': typeof MaintenanceRoute
   '/settings': typeof SettingsRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/drivers': typeof DriversRoute
   '/fleet': typeof FleetRoute
   '/fuel': typeof FuelRoute
+  '/login': typeof LoginRoute
   '/maintenance': typeof MaintenanceRoute
   '/settings': typeof SettingsRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/fleet'
     | '/fuel'
+    | '/login'
     | '/maintenance'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/fleet'
     | '/fuel'
+    | '/login'
     | '/maintenance'
     | '/settings'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/drivers'
     | '/fleet'
     | '/fuel'
+    | '/login'
     | '/maintenance'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   DriversRoute: typeof DriversRoute
   FleetRoute: typeof FleetRoute
   FuelRoute: typeof FuelRoute
+  LoginRoute: typeof LoginRoute
   MaintenanceRoute: typeof MaintenanceRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/maintenance'
       fullPath: '/maintenance'
       preLoaderRoute: typeof MaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fuel': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriversRoute: DriversRoute,
   FleetRoute: FleetRoute,
   FuelRoute: FuelRoute,
+  LoginRoute: LoginRoute,
   MaintenanceRoute: MaintenanceRoute,
   SettingsRoute: SettingsRoute,
 }

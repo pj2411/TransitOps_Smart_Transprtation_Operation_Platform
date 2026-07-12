@@ -4,8 +4,10 @@ import {
   Outlet,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 
+import { AuthProvider, useAuth } from "../lib/auth-context";
 import { AppLayout } from "../components/AppLayout";
 
 function NotFoundComponent() {
@@ -65,18 +67,50 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  component: RootComponent,
-  notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
-});
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
+  {
+    component: RootComponent,
+    notFoundComponent: NotFoundComponent,
+    errorComponent: ErrorComponent,
+  }
+);
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout />
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  /* Show nothing while restoring session */
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      </div>
+    );
+  }
+
+  /* Login page is always accessible */
+  if (pathname === "/login") {
+    return <Outlet />;
+  }
+
+  /* Redirect unauthenticated users to login */
+  if (!user) {
+    window.location.href = "/login";
+    return null;
+  }
+
+  /* Authenticated — render the app layout */
+  return <AppLayout />;
 }
