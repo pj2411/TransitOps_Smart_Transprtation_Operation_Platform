@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { monthlyFinancials } from "@/lib/mock-data";
 import { getVehicles, getDrivers, getTrips } from "@/lib/store";
 import type { Vehicle, Driver, Trip } from "@/types";
@@ -36,6 +37,11 @@ function Dashboard() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
 
+  // Filter States
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [regionFilter, setRegionFilter] = useState("All");
+
   useEffect(() => {
     Promise.all([getVehicles(), getDrivers(), getTrips()]).then(([vs, ds, ts]) => {
       setVehicles(vs);
@@ -44,19 +50,78 @@ function Dashboard() {
     }).catch(console.error);
   }, []);
 
+  const filteredVehicles = vehicles.filter((v) => {
+    if (vehicleTypeFilter !== "All" && v.type !== vehicleTypeFilter) return false;
+    if (statusFilter !== "All" && v.status !== statusFilter) return false;
+    return true;
+  });
+
+  const filteredTrips = trips.filter((t) => {
+    if (regionFilter !== "All" && t.source !== regionFilter && t.destination !== regionFilter) return false;
+    return true;
+  });
+
+  // Extract unique regions from trips
+  const regions = Array.from(new Set(trips.flatMap(t => [t.source, t.destination]))).sort();
+
   const kpi = {
-    activeVehicles: vehicles.filter(v => v.status === 'On Trip').length,
-    availableVehicles: vehicles.filter(v => v.status === 'Available').length,
-    inMaintenance: vehicles.filter(v => v.status === 'In Shop').length,
-    activeTrips: trips.filter(t => t.status === 'Dispatched').length,
-    pausedTrips: trips.filter(t => t.status === 'Draft').length,
-    driversOnDuty: drivers.filter(d => d.status === 'On Trip').length,
-    fleetUtilization: vehicles.length ? Math.round((vehicles.filter(v => v.status === 'On Trip' || v.status === 'Available').length / vehicles.length) * 100) : 0,
+    activeVehicles: filteredVehicles.filter(v => v.status === 'On Trip').length,
+    availableVehicles: filteredVehicles.filter(v => v.status === 'Available').length,
+    inMaintenance: filteredVehicles.filter(v => v.status === 'In Shop').length,
+    activeTrips: filteredTrips.filter(t => t.status === 'Dispatched').length,
+    pausedTrips: filteredTrips.filter(t => t.status === 'Draft').length,
+    driversOnDuty: drivers.filter(d => d.status === 'On Trip').length, // global driver stat
+    fleetUtilization: filteredVehicles.length ? Math.round((filteredVehicles.filter(v => v.status === 'On Trip' || v.status === 'Available').length / filteredVehicles.length) * 100) : 0,
   };
+
+  const filterActions = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Select value={vehicleTypeFilter} onValueChange={setVehicleTypeFilter}>
+        <SelectTrigger className="w-[140px] border-border bg-canvas text-xs text-muted-foreground">
+          <SelectValue placeholder="Vehicle Type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Types</SelectItem>
+          <SelectItem value="Van">Van</SelectItem>
+          <SelectItem value="Truck">Truck</SelectItem>
+          <SelectItem value="Mini">Mini</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <SelectTrigger className="w-[140px] border-border bg-canvas text-xs text-muted-foreground">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Statuses</SelectItem>
+          <SelectItem value="Available">Available</SelectItem>
+          <SelectItem value="On Trip">On Trip</SelectItem>
+          <SelectItem value="In Shop">In Shop</SelectItem>
+          <SelectItem value="Retired">Retired</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={regionFilter} onValueChange={setRegionFilter}>
+        <SelectTrigger className="w-[140px] border-border bg-canvas text-xs text-muted-foreground">
+          <SelectValue placeholder="Region" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All Regions</SelectItem>
+          {regions.map(r => (
+            <SelectItem key={r} value={r}>{r}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   return (
     <>
-      <PageHeader title="Fleet Command" subtitle="Live overview of vehicles, drivers and trips across your operation." />
+      <PageHeader 
+        title="Fleet Command" 
+        subtitle="Live overview of vehicles, drivers and trips across your operation." 
+        actions={filterActions} 
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KPI icon={Truck} label="Active Vehicles" value={String(kpi.activeVehicles)} tint="bg-info" />
@@ -130,7 +195,7 @@ function Dashboard() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {trips.slice(0, 5).map((t) => {
+            {filteredTrips.slice(0, 5).map((t) => {
               const v = vehicles.find(x => x.id === t.vehicleId);
               const d = drivers.find(x => x.id === t.driverId);
               return (
