@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getVehicles, getMaintenanceLogs, openMaintenance, closeMaintenance } from "@/lib/store";
 import type { Vehicle, MaintenanceLog } from "@/types";
-import { Plus, CheckCircle2 } from "lucide-react";
+import { Plus, CheckCircle2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/maintenance")({ component: MaintenancePage });
 
@@ -18,6 +18,9 @@ function MaintenancePage() {
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState({ vehicleId: "", service: "Oil Change", cost: 0 });
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const loadData = async () => {
     try {
@@ -32,6 +35,19 @@ function MaintenancePage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
+
+  const filteredLogs = logs.filter((l) => {
+    const v = vehicles.find((x) => x.id === l.vehicleId);
+    if (!v) return true;
+    return q === "" || v.regNumber.toLowerCase().includes(q.toLowerCase());
+  });
+  
+  const totalPages = Math.ceil(filteredLogs.length / pageSize);
+  const paginatedLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
 
   const addLog = async () => {
     if (!form.vehicleId) return;
@@ -107,27 +123,42 @@ function MaintenancePage() {
         </Card>
 
         <Card className="border-border bg-panel">
-          <div className="border-b border-border p-4">
-            <div className="text-sm font-semibold">Service Log</div>
-            <div className="text-xs text-muted-foreground">All maintenance events</div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4">
+            <div>
+              <div className="text-sm font-semibold">Service Log</div>
+              <div className="text-xs text-muted-foreground">All maintenance events</div>
+            </div>
+            <div className="relative w-full max-w-[200px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search vehicle reg..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="h-8 border-border bg-canvas pl-8 text-xs"
+              />
+            </div>
           </div>
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead>Vehicle</TableHead>
                 <TableHead>Service</TableHead>
+                <TableHead>Opened</TableHead>
+                <TableHead>Closed</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((l) => {
+              {paginatedLogs.map((l) => {
                 const v = vehicles.find(x => x.id === l.vehicleId);
                 return (
                   <TableRow key={l.id} className="border-border hover:bg-canvas">
                     <TableCell className="font-medium">{v?.regNumber || 'Unknown'}</TableCell>
                     <TableCell>{l.serviceType}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{l.dateOpened ? new Date(l.dateOpened).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{l.dateClosed ? new Date(l.dateClosed).toLocaleDateString() : '-'}</TableCell>
                     <TableCell className="text-right">₹{l.cost.toLocaleString()}</TableCell>
                     <TableCell><StatusBadge status={l.status === 'Open' ? 'In Shop' : 'Available'} /></TableCell>
                     <TableCell className="text-right">
@@ -142,6 +173,19 @@ function MaintenancePage() {
               })}
             </TableBody>
           </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <div className="text-xs text-muted-foreground">
+                Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredLogs.length)} of {filteredLogs.length} entries
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                <div className="text-xs text-foreground">Page {page} of {totalPages}</div>
+                <Button variant="outline" size="sm" className="h-7 border-border bg-canvas px-2" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}><ChevronRight className="h-3.5 w-3.5" /></Button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </>
