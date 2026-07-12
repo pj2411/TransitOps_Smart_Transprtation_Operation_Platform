@@ -22,7 +22,7 @@ async function clearTables() {
 }
 
 async function seed() {
-  const wbPath = join(__dirname, '..', '..', 'TransitOps_Dummy_Data.xlsx');
+  const wbPath = join(__dirname, '..', '..', 'backend', 'TransitOps_Dummy_Data.xlsx');
   console.log('Loading Excel file from:', wbPath);
   const wb = xlsx.readFile(wbPath);
 
