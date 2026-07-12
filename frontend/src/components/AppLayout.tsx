@@ -19,7 +19,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { notifications } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -45,7 +44,7 @@ export function AppLayout() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { user, logout, hasAccess } = useAuth();
   const navigate = useNavigate();
-  const [activeNotifications, setActiveNotifications] = useState(notifications);
+  const [activeNotifications, setActiveNotifications] = useState<any[]>([]);
   const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {

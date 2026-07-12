@@ -5,7 +5,6 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { monthlyFinancials } from "@/lib/mock-data";
 import { getVehicles, getDrivers, getTrips, getFuelLogs, getMaintenanceLogs } from "@/lib/store";
 import type { Vehicle, Driver, Trip, FuelLog, MaintenanceLog } from "@/types";
 import { Truck, CheckCircle2, Wrench, Gauge, TrendingUp, IndianRupee, Percent } from "lucide-react";
@@ -97,6 +96,23 @@ function Dashboard() {
     ? (((totalRevenue - operationalCost) / totalAcquisitionCost) * 100).toFixed(2) 
     : "0";
 
+  // --- Dynamic Monthly Financials ---
+  const monthlyData: Record<string, { month: string, cost: number, revenue: number }> = {};
+  const addMonth = (dateStr: string, cost: number, rev: number) => {
+    if (!dateStr) return;
+    const month = dateStr.substring(0, 7);
+    if (!monthlyData[month]) monthlyData[month] = { month, cost: 0, revenue: 0 };
+    monthlyData[month].cost += cost;
+    monthlyData[month].revenue += rev;
+  };
+  trips.forEach(t => addMonth(t.createdAt, 0, t.revenue));
+  fuelLogs.forEach(f => addMonth(f.date, f.cost, 0));
+  maintenanceLogs.forEach(m => addMonth(m.dateOpened, m.cost, 0));
+  const dynamicFinancials = Object.values(monthlyData)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-7)
+    .map(d => ({ ...d, month: new Date(d.month + '-01').toLocaleString('default', { month: 'short' }) }));
+
   const filterActions = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={vehicleTypeFilter} onValueChange={setVehicleTypeFilter}>
@@ -163,7 +179,7 @@ function Dashboard() {
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyFinancials}>
+              <BarChart data={dynamicFinancials}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#232a31" />
                 <XAxis dataKey="month" stroke="#adb5bd" fontSize={12} />
                 <YAxis stroke="#adb5bd" fontSize={12} />
