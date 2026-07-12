@@ -1,9 +1,9 @@
+// @ts-nocheck
 import xlsx from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import crypto from 'node:crypto';
-import process from 'node:process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,7 +13,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// To avoid duplicate seeding issues, we'll clear the tables first
 async function clearTables() {
   console.log('Clearing old data (if permissions allow)...');
   const tables = ['expenses', 'fuel_logs', 'maintenance_logs', 'trips', 'drivers', 'vehicles', 'users'];
