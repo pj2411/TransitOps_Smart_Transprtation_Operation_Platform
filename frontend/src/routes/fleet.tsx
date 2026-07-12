@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getVehicles, addVehicle } from "@/lib/store";
+import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from "@/lib/store";
 import type { Vehicle } from "@/types";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/fleet")({ component: FleetPage });
 
@@ -21,10 +21,17 @@ function FleetPage() {
   const [status, setStatus] = useState<string>("all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Vehicle | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     getVehicles().then(setRows).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [type, status, q]);
 
   const filtered = useMemo(
     () =>
@@ -36,6 +43,20 @@ function FleetPage() {
       ),
     [rows, type, status, q],
   );
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this vehicle? This action cannot be undone.")) {
+      try {
+        await deleteVehicle(id);
+        setRows(rows.filter((v) => v.id !== id));
+      } catch (e: any) {
+        alert(e.message);
+      }
+    }
+  };
 
   return (
     <>
@@ -110,10 +131,11 @@ function FleetPage() {
               <TableHead className="text-right">Odometer</TableHead>
               <TableHead className="text-right">Acq. Cost</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((v) => (
+            {paginated.map((v) => (
               <TableRow key={v.id} className="border-border hover:bg-canvas">
                 <TableCell className="font-medium">{v.regNumber}</TableCell>
                 <TableCell>{v.nameModel}</TableCell>
@@ -122,6 +144,16 @@ function FleetPage() {
                 <TableCell className="text-right">{v.odometer.toLocaleString()}</TableCell>
                 <TableCell className="text-right">₹{v.acquisitionCost.toLocaleString()}</TableCell>
                 <TableCell><StatusBadge status={v.status} /></TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => setEditTarget(v)} className="rounded p-1 text-muted-foreground hover:bg-panel hover:text-foreground">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleDelete(v.id)} className="rounded p-1 text-muted-foreground hover:bg-danger/20 hover:text-danger">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 && (
@@ -133,7 +165,55 @@ function FleetPage() {
             )}
           </TableBody>
         </Table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <div className="text-xs text-muted-foreground">
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filtered.length)} of {filtered.length} entries
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-border bg-canvas px-2"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-xs text-foreground">
+                Page {page} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-border bg-canvas px-2"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
+      
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        {editTarget && (
+          <EditVehicleDialog
+            vehicle={editTarget}
+            onSave={async (updated) => {
+              try {
+                const saved = await updateVehicle(updated);
+                setRows(rows.map(r => r.id === saved.id ? saved : r));
+                setEditTarget(null);
+              } catch (e: any) {
+                alert(e.message);
+              }
+            }}
+          />
+        )}
+      </Dialog>
     </>
   );
 }
@@ -184,6 +264,67 @@ function AddVehicleDialog({ onAdd }: { onAdd: (v: Omit<Vehicle, 'id'>) => void }
           onClick={() => onAdd(form)}
         >
           Save vehicle
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function EditVehicleDialog({ vehicle, onSave }: { vehicle: Vehicle; onSave: (v: Vehicle) => void }) {
+  const [form, setForm] = useState<Vehicle>(vehicle);
+  return (
+    <DialogContent className="border-border bg-panel">
+      <DialogHeader>
+        <DialogTitle>Edit Vehicle</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-4 py-2">
+        <div className="col-span-2 space-y-1.5">
+          <Label>Registration No</Label>
+          <Input value={form.regNumber} onChange={(e) => setForm({ ...form, regNumber: e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Model</Label>
+          <Input value={form.nameModel} onChange={(e) => setForm({ ...form, nameModel: e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Type</Label>
+          <Select value={form.type} onValueChange={(v: any) => setForm({ ...form, type: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Van">Van</SelectItem>
+              <SelectItem value="Truck">Truck</SelectItem>
+              <SelectItem value="Mini">Mini</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Capacity (kg)</Label>
+          <Input type="number" value={form.maxLoadCapacity} onChange={(e) => setForm({ ...form, maxLoadCapacity: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Odometer</Label>
+          <Input type="number" value={form.odometer} onChange={(e) => setForm({ ...form, odometer: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Acquisition Cost (₹)</Label>
+          <Input type="number" value={form.acquisitionCost} onChange={(e) => setForm({ ...form, acquisitionCost: +e.target.value })} className="border-border bg-canvas" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Status</Label>
+          <Select value={form.status} onValueChange={(v: any) => setForm({ ...form, status: v })}>
+            <SelectTrigger className="border-border bg-canvas"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Available">Available</SelectItem>
+              <SelectItem value="On Trip">On Trip</SelectItem>
+              <SelectItem value="In Shop">In Shop</SelectItem>
+              <SelectItem value="Retired">Retired</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => onSave(form)}>
+          Update vehicle
         </Button>
       </DialogFooter>
     </DialogContent>
