@@ -52,8 +52,8 @@ function LoginPage() {
       {/* Left — Branding */}
       <div className="hidden w-1/2 flex-col justify-between bg-sidebar p-10 lg:flex">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
-            T
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <img src="/favicon.svg" alt="TransitOps Logo" className="h-6 w-6" />
           </div>
           <span className="text-lg font-semibold text-sidebar-foreground">TransitOps</span>
         </div>
@@ -88,8 +88,8 @@ function LoginPage() {
       <div className="flex flex-1 items-center justify-center p-6">
         <Card className="w-full max-w-md border-border bg-panel p-8">
           <div className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-xl font-bold text-primary-foreground lg:hidden">
-              T
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 lg:hidden">
+              <img src="/favicon.svg" alt="TransitOps Logo" className="h-8 w-8" />
             </div>
             <h2 className="text-xl font-semibold text-foreground">Sign in to your account</h2>
             <p className="mt-1 text-sm text-muted-foreground">

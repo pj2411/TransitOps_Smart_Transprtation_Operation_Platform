@@ -66,8 +66,8 @@ export function AppLayout() {
     <div className="flex min-h-screen w-full bg-canvas text-foreground">
       <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-sidebar-border bg-sidebar">
         <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
-            T
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
+            <img src="/favicon.svg" alt="TransitOps Logo" className="h-5 w-5" />
           </div>
           <div>
             <div className="text-sm font-semibold leading-none">TransitOps</div>
