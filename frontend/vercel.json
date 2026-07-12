@@ -1,3 +1,9 @@
 {
-  "name": "transitops"
+  "name": "transitops",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
